@@ -14,7 +14,7 @@ contract Disney {
 
     // constructor
     constructor() public {
-        token = new ERC20Basic(10000);
+        token = new ERC20Basic(90);
         owner = msg.sender;
     }
 
@@ -211,5 +211,101 @@ contract Disney {
         // devolucion de los ether al cliente
 
         msg.sender.transfer(PrecioTokens(_numTokens));
+    }
+
+    //  --------------------- Gestion de Disney Comida -------------------
+
+    // eventos
+
+    event disfruta_comida(string, uint256, address);
+    event nuevas_comida(string, uint256, bool);
+    event bajar_comida(string);
+    event alta_comida(string);
+
+    // structura de la atraccion
+    struct comida {
+        string nombre;
+        uint256 precio;
+        bool estado_comida;
+    }
+
+    // Mapping para relacionar nombre de atraciones con la estructura de datos de la comida
+    mapping(string => comida) public MappingComidas;
+
+    string[] comidas;
+
+    // Mapping para almacenar una identidad (cliente con su historial de disney)
+    mapping(address => string[]) public MappingHistorialComidas;
+
+    // crear nuevas atracion para disney, solo es ejecutable por disney
+
+    function NuevaComida(string memory _nombreComida, uint256 _precio)
+        public
+        UnicamenteOwner(msg.sender)
+    {
+        // creacion de una comida nueva
+        MappingComidas[_nombreComida] = comida(_nombreComida, _precio, true);
+        // almacenar en un aray de las comidadas
+        comidas.push(_nombreComida);
+        // emision del evento para la nueva comida
+        emit nuevas_comida(_nombreComida, _precio, true);
+    }
+
+    // Dar de bajaa las comida en disney, solo es ejecutable por disney
+    function BajaComida(string memory _nombreComida)
+        public
+        UnicamenteOwner(msg.sender)
+    {
+        // El Estado de la atracion pasa a FALSE -> no esta en uso
+        MappingComidas[_nombreComida].estado_comida = false;
+        emit bajar_comida(_nombreComida);
+    }
+
+    function DarDeAltaComida(string memory _nombreComida)
+        public
+        UnicamenteOwner(msg.sender)
+    {
+        // El Estado de la atracion pasa a FALSE -> no esta en uso
+        MappingComidas[_nombreComida].estado_comida = true;
+        emit alta_comida(_nombreComida);
+    }
+
+    function ComidasDisponibles() public view returns (string[] memory) {
+        return comidas;
+    }
+
+    // funcion para subirse a una atracion de disney y pagar
+    function ComprarComidas(string memory _nombreComida) public {
+        // precion de la atracion el tokes
+        uint256 precio = MappingComidas[_nombreComida].precio;
+
+        // verificar el estado de la atracion para poder subirse
+        require(
+            MappingComidas[_nombreComida].estado_comida == true,
+            "comida no disponible"
+        );
+
+        // verificar que el cliente tenga los tokens necesarios para pagar
+        require(precio <= misTokens(), "No tienes los tokens suficientes");
+
+        /*
+            EL CLIENTE PAGA LA ATRACCION EN TOKES:
+            
+            - HA SIDO NECESARIO CREAR UN FUNCION EN ERC20.SOL CON EL NOMBRE DE transferDisney DEBIDO A QUE EN CASO DE USAR TRANFERSFROM
+            LAS DIRECCION ENCOGIAN  PARA REALIZAR LA ATRACNION ERA EQUIVOCADA YA QUE EL MSG.SENDER QUE RECIBIA EL METODO TRANFERS O TRAMFERS 
+            FROM ERA LA DIRECCION DEL CONTRATO
+        */
+
+        token.transferDisney(msg.sender, address(this), precio);
+
+        MappingHistorialComidas[msg.sender].push(_nombreComida);
+
+        // emision del evento para la nueva atracion
+        emit disfruta_comida(_nombreComida, precio, msg.sender);
+    }
+
+    // visualiza el historial de atracciones de un cliente
+    function HistorialComida() public view returns (string[] memory) {
+        return MappingHistorialComidas[msg.sender];
     }
 }
